@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Home Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      :root {
+        --bg: #000000;
+        --card: #121212;
+        --border: #1f1f1f;
+        --text: #ffffff;
+        --text-dim: #71717a;
+        --accent: #10b981;
+        --warning: #f59e0b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 24px;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 280px 1fr 300px;
+        grid-template-rows: 60px 1fr;
+        gap: 24px;
+        height: calc(100vh - 48px);
+      }
+
+      header {
+        grid-column: span 3;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 16px;
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 24px;
+        border: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Left Column: Metrics */
+      .metrics-col {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .status-tag {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-dim);
+        font-weight: 600;
+      }
+      .metric-value {
+        font-size: 2.8rem;
+        font-weight: 700;
+        color: var(--accent);
+        margin: 8px 0;
+      }
+
+      /* Middle Column: The Chart */
+      .chart-container {
+        position: relative;
+        flex-grow: 1;
+        min-height: 0;
+      }
+
+      /* Right Column: AI & Controls */
+      .controls-col {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .ai-box {
+        border-left: 4px solid var(--warning);
+      }
+
+      h3 {
+        margin: 0 0 12px 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      button {
+        background: #1f1f1f;
+        color: white;
+        border: 1px solid var(--border);
+        padding: 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-bottom: 12px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+      }
+      button:hover {
+        background: var(--accent);
+        color: #000;
+        border-color: var(--accent);
+      }
+
+      .ai-text {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: #a1a1aa;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dashboard-grid">
+      <header>
+        <h2 style="margin: 0; font-size: 1.4rem; font-weight: 600">
+          Smart Home
+          <span style="font-weight: 400; color: var(--text-dim)"
+            >Energy Hub</span
+          >
+        </h2>
+        <div
+          id="clock"
+          style="
+            color: var(--accent);
+            font-family: &quot;JetBrains Mono&quot;, monospace;
+            font-size: 1.1rem;
+            font-weight: 500;
+          "
+        >
+          00:00:00
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span
+            id="health-dot"
+            style="
+              height: 10px;
+              width: 100px;
+              border-radius: 5px;
+              background: #333;
+              font-size: 10px;
+              text-align: center;
+              color: #000;
+              line-height: 10px;
+            "
+            >OFFLINE</span
+          >
+        </div>
+      </header>
+
+      <div class="metrics-col">
+        <div class="card">
+          <span class="status-tag">Current Energy Load</span>
+          <div class="metric-value" id="watts">0 W</div>
+          <small
+            id="peak-prediction"
+            style="color: var(--warning); font-weight: 600"
+            >Calculating status...</small
+          >
+        </div>
+        <div class="card">
+          <span class="status-tag">Ambient Temperature</span>
+          <div class="metric-value" id="temp">0.0°C</div>
+        </div>
+        <div class="card">
+          <span class="status-tag">Room Occupancy</span>
+          <div
+            class="metric-value"
+            style="font-size: 1.5rem; color: #fff"
+            id="occupancy"
+          >
+            Detecting...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+          "
+        >
+          <span class="status-tag">Live Consumption Trend</span>
+          <span
+            style="color: var(--accent); font-size: 0.75rem; font-weight: 600"
+            >● Active Stream</span
+          >
+        </div>
+        <div class="chart-container">
+          <canvas id="energyChart"></canvas>
+        </div>
+      </div>
+
+      <div class="controls-col">
+        <div class="card ai-box">
+          <h3>AI Insights</h3>
+          <p id="ai-status" class="ai-text">
+            Synchronizing with pattern recognition model...
+          </p>
+        </div>
+        <div class="card" style="flex-grow: 1">
+          <h3>Manual Controls</h3>
+         <button id="btn-1" onclick="toggleRelay(1)">Toggle Main Lighting</button>
+<button id="btn-2" onclick="toggleRelay(2)">Toggle HVAC System</button>
+
+<div class="card" style="margin-top: 10px; border-top: 1px solid #333; padding-top: 15px;">
+    <span class="status-tag">Individual Appliance Usage</span>
+    <div style="font-size: 0.8rem; margin-top: 10px; color: #aaa;">
+        <div style="display:flex; justify-content:space-between;"><span>Smart Light</span><span id="val-1">0 W</span></div>
+        <div style="display:flex; justify-content:space-between; margin-top:5px;"><span>HVAC Fan</span><span id="val-2">0 W</span></div>
+    </div>
+</div>
+        </div>
+     
+      </div>
+    </div>
+
+    <script>
+      // Clock
+      setInterval(() => {
+        document.getElementById("clock").innerText =
+          new Date().toLocaleTimeString();
+      }, 1000);
+
+      const ctx = document.getElementById("energyChart").getContext("2d");
+      const energyChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: "Watts",
+              data: [],
+              borderColor: "#10b981",
+              borderWidth: 2.5,
+              tension: 0.3, // Keeps the line smooth but not "rubbery"
+              fill: true,
+              backgroundColor: "rgba(16, 185, 129, 0.05)",
+              pointRadius: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false, // CRITICAL: This kills the "snapping" bug
+          scales: {
+            y: {
+              min: 0,
+              suggestedMax: 500, // Keeps the axis steady
+              grid: { color: "#1f1f1f" },
+              ticks: { color: "#71717a" },
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: "#71717a", font: { size: 10 } },
+            },
+          },
+          plugins: { legend: { display: false } },
+        },
+      });
+
+      async function updateDashboard() {
+        try {
+          const response = await fetch("/api/sensor-data");
+          const data = await response.json();
+
+          // Update UX for Buttons & Individual Metering
+        for (let i = 1; i <= 2; i++) {
+            const btn = document.getElementById(`btn-${i}`);
+            const val = document.getElementById(`val-${i}`);
+            const state = data[`relay_${i}`];
+            const watts = data[i === 1 ? 'light_w' : 'fan_w'];
+
+            btn.style.background = state ? "var(--accent)" : "#222";
+            btn.style.color = state ? "#000" : "#fff";
+            val.innerText = watts + " W";
+        }
+
+          // Update Numbers
+          document.getElementById("watts").innerText = data.watts + " W";
+          document.getElementById("temp").innerText = data.temp + "°C";
+          document.getElementById("occupancy").innerText = data.occupancy;
+          document.getElementById("ai-status").innerText = data.ai_suggestion;
+          document.getElementById("peak-prediction").innerText =
+            data.peak_status;
+
+          // More forgiving Health Check (15 seconds instead of 5)
+          const dot = document.getElementById("health-dot");
+          if (data.online) {
+            dot.style.background = "#10b981";
+            dot.innerText = "SYSTEM ONLINE";
+          } else {
+            dot.style.background = "#f43f5e";
+            dot.innerText = "SYSTEM OFFLINE";
+          }
+
+          // SMOOTH CHART UPDATE
+          const now = new Date().toLocaleTimeString();
+          if (energyChart.data.labels.length > 15) {
+            energyChart.data.labels.shift();
+            energyChart.data.datasets[0].data.shift();
+          }
+          energyChart.data.labels.push(now);
+          energyChart.data.datasets[0].data.push(data.watts);
+          energyChart.update();
+        } catch (e) {
+          console.error("Dashboard poll failed.");
+        }
+        // Update the Light Status label
+        const lightStatus = data.light_status;
+        document.getElementById("ai-status").innerHTML =
+          `<span style="color: ${lightStatus === "ON" ? "#10b981" : "#f43f5e"}">
+    LIGHT GRID: ${lightStatus}</span><br>${data.ai_suggestion}`;
+      }
+
+    async function toggleRelay(id) {
+    await fetch('/api/toggle-relay', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: id})
+    });
+}
+
+      setInterval(updateDashboard, 1000);
+    </script>
+  </body>
+</html>

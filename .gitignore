@@ -1,0 +1,38 @@
+# --- Python & Flask ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+instance/
+.pytest_cache/
+*.log
+
+# --- AI & Models ---
+# It's okay to commit the .pkl for a school project, 
+# but usually, we ignore large models.
+# energy_model.pkl 
+
+# --- Environment & Secrets ---
+# NEVER commit your secrets!
+.env
+.flaskenv
+secrets.json
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- IDEs -g--
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Hardware / Wokwi ---
+# If you use any local simulation state files
+.wokwi/
+diagram.json.backup
