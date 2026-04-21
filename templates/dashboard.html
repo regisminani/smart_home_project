@@ -39,10 +39,8 @@
 
       .dashboard-grid {
         display: grid;
-        grid-template-columns: 280px 1fr 300px;
-        grid-template-rows: 60px 1fr;
-        gap: 24px;
-        height: calc(100vh - 48px);
+        grid-template-columns: 180px 1fr 220px;
+        gap: 15px;
       }
 
       header {
@@ -77,7 +75,7 @@
         font-weight: 600;
       }
       .metric-value {
-        font-size: 2.8rem;
+        font-size: 1.8rem;
         font-weight: 700;
         color: var(--accent);
         margin: 8px 0;
@@ -173,27 +171,14 @@
 
       <div class="metrics-col">
         <div class="card">
-          <span class="status-tag">Current Energy Load</span>
+          <span class="status-tag">Energy</span>
           <div class="metric-value" id="watts">0 W</div>
-          <small
-            id="peak-prediction"
-            style="color: var(--warning); font-weight: 600"
-            >Calculating status...</small
-          >
+          <small id="lux-val" style="color: var(--accent)">Lux: 0</small>
         </div>
         <div class="card">
-          <span class="status-tag">Ambient Temperature</span>
+          <span class="status-tag">Climate</span>
           <div class="metric-value" id="temp">0.0°C</div>
-        </div>
-        <div class="card">
-          <span class="status-tag">Room Occupancy</span>
-          <div
-            class="metric-value"
-            style="font-size: 1.5rem; color: #fff"
-            id="occupancy"
-          >
-            Detecting...
-          </div>
+          <small id="hum-val" style="color: var(--warning)">Hum: 0%</small>
         </div>
       </div>
 
@@ -226,18 +211,38 @@
         </div>
         <div class="card" style="flex-grow: 1">
           <h3>Manual Controls</h3>
-         <button id="btn-1" onclick="toggleRelay(1)">Toggle Main Lighting</button>
-<button id="btn-2" onclick="toggleRelay(2)">Toggle HVAC System</button>
+          <button id="btn-1" onclick="toggleRelay(1)">
+            Toggle Main Lighting
+          </button>
+          <button id="btn-2" onclick="toggleRelay(2)">
+            Toggle HVAC System
+          </button>
 
-<div class="card" style="margin-top: 10px; border-top: 1px solid #333; padding-top: 15px;">
-    <span class="status-tag">Individual Appliance Usage</span>
-    <div style="font-size: 0.8rem; margin-top: 10px; color: #aaa;">
-        <div style="display:flex; justify-content:space-between;"><span>Smart Light</span><span id="val-1">0 W</span></div>
-        <div style="display:flex; justify-content:space-between; margin-top:5px;"><span>HVAC Fan</span><span id="val-2">0 W</span></div>
-    </div>
-</div>
+          <div
+            class="card"
+            style="
+              margin-top: 10px;
+              border-top: 1px solid #333;
+              padding-top: 15px;
+            "
+          >
+            <span class="status-tag">Individual Appliance Usage</span>
+            <div style="font-size: 0.8rem; margin-top: 10px; color: #aaa">
+              <div style="display: flex; justify-content: space-between">
+                <span>Smart Light</span><span id="val-1">0 W</span>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  margin-top: 5px;
+                "
+              >
+                <span>HVAC Fan</span><span id="val-2">0 W</span>
+              </div>
+            </div>
+          </div>
         </div>
-     
       </div>
     </div>
 
@@ -249,6 +254,7 @@
       }, 1000);
 
       const ctx = document.getElementById("energyChart").getContext("2d");
+      // UPDATE: Multi-Line Chart Configuration
       const energyChart = new Chart(ctx, {
         type: "line",
         data: {
@@ -258,95 +264,80 @@
               label: "Watts",
               data: [],
               borderColor: "#10b981",
-              borderWidth: 2.5,
-              tension: 0.3, // Keeps the line smooth but not "rubbery"
-              fill: true,
-              backgroundColor: "rgba(16, 185, 129, 0.05)",
-              pointRadius: 0,
+              tension: 0.4,
+              yAxisID: "y",
+            },
+            {
+              label: "Temp",
+              data: [],
+              borderColor: "#f59e0b",
+              tension: 0.4,
+              yAxisID: "y1",
+            },
+            {
+              label: "Humid",
+              data: [],
+              borderColor: "#3b82f6",
+              tension: 0.4,
+              yAxisID: "y1",
+            },
+            {
+              label: "Lux",
+              data: [],
+              borderColor: "#ffffff",
+              tension: 0.4,
+              yAxisID: "y",
             },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          animation: false, // CRITICAL: This kills the "snapping" bug
           scales: {
             y: {
-              min: 0,
-              suggestedMax: 500, // Keeps the axis steady
-              grid: { color: "#1f1f1f" },
-              ticks: { color: "#71717a" },
+              position: "left",
+              title: { display: true, text: "Energy/Light" },
             },
-            x: {
-              grid: { display: false },
-              ticks: { color: "#71717a", font: { size: 10 } },
+            y1: {
+              position: "right",
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: "Climate" },
             },
           },
-          plugins: { legend: { display: false } },
         },
       });
 
       async function updateDashboard() {
-        try {
-          const response = await fetch("/api/sensor-data");
-          const data = await response.json();
+        const res = await fetch("/api/sensor-data");
+        const data = await res.json();
 
-          // Update UX for Buttons & Individual Metering
-        for (let i = 1; i <= 2; i++) {
-            const btn = document.getElementById(`btn-${i}`);
-            const val = document.getElementById(`val-${i}`);
-            const state = data[`relay_${i}`];
-            const watts = data[i === 1 ? 'light_w' : 'fan_w'];
+        // Mapping values (Fixes the 'undefined' error)
+        document.getElementById("watts").innerText = data.watts + " W";
+        document.getElementById("temp").innerText = data.temp + "°C";
+        document.getElementById("lux").innerText = data.lux;
+        document.getElementById("humidity").innerText = data.humidity + "%";
+        document.getElementById("occupancy").innerText = data.occupancy;
 
-            btn.style.background = state ? "var(--accent)" : "#222";
-            btn.style.color = state ? "#000" : "#fff";
-            val.innerText = watts + " W";
+        const now = new Date().toLocaleTimeString();
+        if (energyChart.data.labels.length > 20) {
+          energyChart.data.labels.shift();
+          energyChart.data.datasets.forEach((ds) => ds.data.shift()); // Sync shift
         }
-
-          // Update Numbers
-          document.getElementById("watts").innerText = data.watts + " W";
-          document.getElementById("temp").innerText = data.temp + "°C";
-          document.getElementById("occupancy").innerText = data.occupancy;
-          document.getElementById("ai-status").innerText = data.ai_suggestion;
-          document.getElementById("peak-prediction").innerText =
-            data.peak_status;
-
-          // More forgiving Health Check (15 seconds instead of 5)
-          const dot = document.getElementById("health-dot");
-          if (data.online) {
-            dot.style.background = "#10b981";
-            dot.innerText = "SYSTEM ONLINE";
-          } else {
-            dot.style.background = "#f43f5e";
-            dot.innerText = "SYSTEM OFFLINE";
-          }
-
-          // SMOOTH CHART UPDATE
-          const now = new Date().toLocaleTimeString();
-          if (energyChart.data.labels.length > 15) {
-            energyChart.data.labels.shift();
-            energyChart.data.datasets[0].data.shift();
-          }
-          energyChart.data.labels.push(now);
-          energyChart.data.datasets[0].data.push(data.watts);
-          energyChart.update();
-        } catch (e) {
-          console.error("Dashboard poll failed.");
-        }
-        // Update the Light Status label
-        const lightStatus = data.light_status;
-        document.getElementById("ai-status").innerHTML =
-          `<span style="color: ${lightStatus === "ON" ? "#10b981" : "#f43f5e"}">
-    LIGHT GRID: ${lightStatus}</span><br>${data.ai_suggestion}`;
+        energyChart.data.labels.push(now);
+        energyChart.data.datasets[0].data.push(data.watts);
+        energyChart.data.datasets[1].data.push(data.temp);
+        energyChart.data.datasets[2].data.push(data.humidity);
+        energyChart.data.datasets[3].data.push(data.lux);
+        energyChart.update("none"); // Update without animation for performance
       }
 
-    async function toggleRelay(id) {
-    await fetch('/api/toggle-relay', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id: id})
-    });
-}
+      async function toggleRelay(id) {
+        await fetch("/api/toggle-relay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: id }),
+        });
+      }
 
       setInterval(updateDashboard, 1000);
     </script>

@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 import joblib
 import pandas as pd
 from datetime import datetime
+import sqlite3
 
 app = Flask(__name__)
 
@@ -17,6 +18,16 @@ latest_data = {
     "last_motion_at": datetime.now().timestamp() # Track actual motion
 }
 relay_states = {"1": False, "2": False} # 1 = Light, 2 = Fan
+
+def init_db():
+    conn = sqlite3.connect('smart_home.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS sensor_data
+                 (timestamp DATETIME, motion INT, lux FLOAT, temp FLOAT, hum FLOAT, watts INT)''')
+    conn.commit()
+    conn.close()
+
+init_db() # Run once on startup
 
 @app.route('/')
 def home():
@@ -64,84 +75,120 @@ def get_commands():
 @app.route('/api/data-receiver', methods=['POST'])
 def receive_data():
     global latest_data
-    # force=True is the key here; it ignores the header and tries to parse JSON anyway
+    # Use force=True to handle JSON regardless of the Content-Type header
     data = request.get_json(force=True, silent=True)
-    
-    if data:
-        occ = data.get("occupancy", "Empty")
-        if occ == "Occupied":
-            latest_data["last_motion_at"] = datetime.now().timestamp()
+
+    if not data:
+        print("❌ Sync Failed: Payload was empty or malformed")
+        return jsonify({"status": "error"}), 400
+
+    try:
+        # 1. Extraction & Normalization (Requirement #1 & #2)
+        # Convert "Occupied" string to integer (1) for database efficiency
+        occ_str = data.get("occupancy", "Empty")
+        motion_int = 1 if occ_str == "Occupied" else 0
+        
+        # Meaningful unit extraction
+        watts = int(data.get("watts", 0))
+        temp = float(data.get("temp", 0.0))
+        lux = float(data.get("lux", 0.0))
+        hum = float(data.get("humidity", 0.0))
+
+        # 2. Update Global State (Requirement #2 & #4)
+        now_ts = datetime.now().timestamp()
+        
+        # Track actual motion for the 15s Auto-Off logic
+        if occ_str == "Occupied":
+            latest_data["last_motion_at"] = now_ts
 
         latest_data.update({
-            "watts": int(data.get("watts", 0)),
-            "temp": float(data.get("temp", 0)),
-            "occupancy": occ,
-            "last_seen": datetime.now().timestamp()
+            "watts": watts,
+            "temp": temp,
+            "lux": lux,
+            "humidity": hum,
+            "occupancy": occ_str,
+            "last_seen": now_ts
         })
-        print(f"✅ Sync Success: {occ} | {latest_data['watts']}W")
+
+        # 3. Local Database Mapping (Requirement #4)
+        # Store all 4 sensors + timestamp in a single record
+        db_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        conn = sqlite3.connect('smart_home.db')
+        c = conn.cursor()
+        # Ensure column order matches your init_db(): timestamp, motion, lux, temp, hum, watts
+        c.execute("INSERT INTO sensor_data (timestamp, motion, lux, temp, hum, watts) VALUES (?, ?, ?, ?, ?, ?)", 
+                  (db_time, motion_int, lux, temp, hum, watts))
+        conn.commit()
+        conn.close()
+
+        print(f"✅ DB & Sync Success: {occ_str} | {temp}°C | {watts}W")
         return jsonify({"status": "success"}), 200
-    
-    print("❌ Sync Failed: Payload was empty or malformed")
-    return jsonify({"status": "error"}), 400
+
+    except Exception as e:
+        print(f"⚠️ Error during processing/DB write: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # 4. Dashboard Update: UI calls this every 1s
 @app.route('/api/sensor-data')
 def get_sensor_data():
-    global relay_states
+    global relay_states, latest_data
     now = datetime.now().timestamp()
-    
-    # Calculate time since the LAST "Occupied" signal
-    time_since_motion = datetime.now().timestamp() - latest_data["last_motion_at"]
-    
-    # --- REQUIREMENT #1: AUTONOMOUS LOGIC (Server-Side) ---
-    # 1. AUTO-ON: If motion is detected, force the light ON
-# 1. AUTO-ON: If motion detected, turn it on
-    if latest_data["occupancy"] == "Occupied":
-        if not relay_states["1"]:
-            print("AI System: Motion detected. Automatically enabling Light Grid.")
-        relay_states["1"] = True
-        # Keep updating the timer while we see motion
-        latest_data["last_motion_at"] = now 
 
-    # 2. AUTO-OFF: Only if room is empty AND 15s has passed
+    # 1. Fetch the latest record from the Database
+    conn = sqlite3.connect('smart_home.db')
+    c = conn.cursor()
+    # SQL Order Logic: DESC for latest, ASC for oldest
+    c.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC LIMIT 1")
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        # 2. UPDATE Global State so AI Logic uses DB values
+        latest_data.update({
+            "occupancy": "Occupied" if row[1] == 1 else "Empty",
+            "lux": row[2],
+            "temp": row[3],
+            "humidity": row[4],
+            "watts": row[5],
+            "last_seen": now # Ensures the 'Online' dot stays green
+        })
+
+    # --- AUTO-ON/OFF LOGIC (Uses updated latest_data) ---
+    time_since_motion = now - latest_data["last_motion_at"]
+    if latest_data["occupancy"] == "Occupied":
+        relay_states["1"] = True
+        latest_data["last_motion_at"] = now 
     elif latest_data["occupancy"] == "Empty" and time_since_motion > 15:
-        if relay_states["1"]:
-            print("AI System: Room empty for 15s. Automatically disabling Light Grid.")
         relay_states["1"] = False
 
-
-    # AI Prediction
+    # --- AI PREDICTION ---
     current_hour = datetime.now().hour
     occ_int = 1 if latest_data["occupancy"] == "Occupied" else 0
     features = pd.DataFrame([[current_hour, latest_data["temp"], occ_int]], 
                             columns=['hour', 'temp', 'occupancy'])
     prediction = model.predict(features)[0]
+    ai_msg = "PREDICTIVE ALERT: Peak usage expected." if prediction == 1 else "AI INSIGHT: System optimized."
 
-    # Requirement Check: Predictive Insights (Actionable Suggestions)
-    if prediction == 1:
-        ai_msg = "PREDICTIVE ALERT: Peak usage expected soon. Suggestion: Shut down HVAC Fan."
-        peak_status = "HIGH PEAK"
-    else:
-        ai_msg = "AI INSIGHT: System optimized. Current habits are sustainable."
-        peak_status = "NORMAL"
-
-    # Requirement Check: Individual Appliance Monitoring (Virtual Metering)
-    # We "meter" them virtually based on their ON/OFF status
-    light_w = 60 if relay_states["1"] else 0  # Assuming 60W bulb
-    fan_w = 150 if relay_states["2"] else 0   # Assuming 150W fan
+    # --- VIRTUAL METERING ---
+    light_w = 60 if relay_states["1"] else 0
+    fan_w = 150 if relay_states["2"] else 0
+    # FIX: Ensure total watts includes both raw DB sensor and virtual load
     total_dynamic_watts = latest_data["watts"] + light_w + fan_w
 
     return jsonify({
         "watts": total_dynamic_watts,
         "temp": latest_data["temp"],
+        "lux": latest_data["lux"],
+        "humidity": latest_data["humidity"],
         "occupancy": latest_data["occupancy"],
-        "peak_status": peak_status,
         "relay_1": relay_states["1"],
         "relay_2": relay_states["2"],
         "light_w": light_w,
         "fan_w": fan_w,
         "ai_suggestion": ai_msg,
-        "online": (datetime.now().timestamp() - latest_data["last_seen"]) < 10
+        "peak_status": "HIGH PEAK" if prediction == 1 else "NORMAL",
+        "online": (now - latest_data["last_seen"]) < 10
     })
 
 if __name__ == '__main__':

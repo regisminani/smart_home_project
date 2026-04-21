@@ -58,3 +58,28 @@ line = ser.readline().decode('utf-8').strip()
             except Exception as e:
                 print(f"Transmission Error: {e}")
     time.sleep(0.1)
+
+
+
+# Starting venv 
+source venv/Scripts/activate
+
+# Collecting data
+
+The Strategy:
+
+Environment Variation: Physically blow on the AHT10 (Temp spike) and cover the LDR (Lux drop) while recording.
+
+Turbo Polling: Change the Arduino delay(1000) to delay(100) and remove the time.sleep(0.1) in the Python bridge. This allows you to collect 10 records per second, hitting 100,000 records in about 2.7 hours instead of 27.
+
+# SQL Logic to Change Order
+You can modify this specific line in your Python query logic to toggle between viewing the latest data or the oldest historical data:
+
+To display the LATEST (Default Dashboard):
+
+SQL
+SELECT * FROM sensor_data ORDER BY timestamp DESC LIMIT 1;
+To display the OLDEST (Historical Review):
+
+SQL
+SELECT * FROM sensor_data ORDER BY timestamp ASC LIMIT 1;
