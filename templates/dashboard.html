@@ -5,42 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Smart Home Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-    />
     <style>
       :root {
-        --bg: #000000;
+        --bg: #000;
         --card: #121212;
         --border: #1f1f1f;
-        --text: #ffffff;
-        --text-dim: #71717a;
+        --text: #fff;
         --accent: #10b981;
         --warning: #f59e0b;
       }
 
-      * {
-        box-sizing: border-box;
-      }
-
+      /* FIX: Overflow and flexible layout */
       body {
-        font-family:
-          "Inter",
-          -apple-system,
-          sans-serif;
+        font-family: "Inter", sans-serif;
         background: var(--bg);
         color: var(--text);
         margin: 0;
-        padding: 24px;
+        padding: 10px;
         height: 100vh;
         overflow: hidden;
+        box-sizing: border-box;
       }
 
       .dashboard-grid {
         display: grid;
-        grid-template-columns: 180px 1fr 220px;
-        gap: 15px;
+        grid-template-columns: 160px 1fr 200px;
+        grid-template-rows: 40px 1fr;
+        gap: 10px;
+        height: 100%;
       }
 
       header {
@@ -49,197 +41,151 @@
         justify-content: space-between;
         align-items: center;
         border-bottom: 1px solid var(--border);
-        padding-bottom: 16px;
       }
-
       .card {
         background: var(--card);
         border-radius: 12px;
-        padding: 24px;
+        padding: 12px;
         border: 1px solid var(--border);
         display: flex;
         flex-direction: column;
-      }
-
-      /* Left Column: Metrics */
-      .metrics-col {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-      }
-      .status-tag {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: var(--text-dim);
-        font-weight: 600;
-      }
-      .metric-value {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: var(--accent);
-        margin: 8px 0;
-      }
-
-      /* Middle Column: The Chart */
-      .chart-container {
-        position: relative;
-        flex-grow: 1;
         min-height: 0;
       }
-
-      /* Right Column: AI & Controls */
+      .metrics-col,
       .controls-col {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 8px;
       }
-      .ai-box {
-        border-left: 4px solid var(--warning);
+      .status-tag {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        color: #71717a;
+        font-weight: 800;
+      }
+      .metric-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--accent);
       }
 
-      h3 {
-        margin: 0 0 12px 0;
-        font-size: 1rem;
-        font-weight: 600;
-        color: var(--text);
+      /* FIX: Prevent overflow */
+      .chart-container {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        width: 100%;
       }
 
       button {
         background: #1f1f1f;
         color: white;
         border: 1px solid var(--border);
-        padding: 14px;
-        border-radius: 8px;
+        padding: 10px;
+        border-radius: 6px;
         cursor: pointer;
-        margin-bottom: 12px;
         font-weight: 600;
-        font-size: 0.85rem;
-        transition: all 0.2s ease;
-      }
-      button:hover {
-        background: var(--accent);
-        color: #000;
-        border-color: var(--accent);
-      }
-
-      .ai-text {
-        font-size: 0.9rem;
-        line-height: 1.5;
-        color: #a1a1aa;
-        margin: 0;
+        font-size: 0.75rem;
+        width: 100%;
+        margin-bottom: 5px;
       }
     </style>
   </head>
   <body>
     <div class="dashboard-grid">
       <header>
-        <h2 style="margin: 0; font-size: 1.4rem; font-weight: 600">
+        <h2 style="margin: 0; font-size: 1rem">
           Smart Home
-          <span style="font-weight: 400; color: var(--text-dim)"
-            >Energy Hub</span
-          >
+          <span style="font-weight: 400; color: #71717a">Energy Hub</span>
         </h2>
-        <div
-          id="clock"
-          style="
-            color: var(--accent);
-            font-family: &quot;JetBrains Mono&quot;, monospace;
-            font-size: 1.1rem;
-            font-weight: 500;
-          "
-        >
+        <div id="clock" style="color: var(--accent); font-family: monospace">
           00:00:00
         </div>
-        <div style="display: flex; align-items: center; gap: 8px">
-          <span
-            id="health-dot"
-            style="
-              height: 10px;
-              width: 100px;
-              border-radius: 5px;
-              background: #333;
-              font-size: 10px;
-              text-align: center;
-              color: #000;
-              line-height: 10px;
-            "
-            >OFFLINE</span
-          >
-        </div>
+        <span
+          id="health-dot"
+          style="
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 9px;
+            font-weight: 800;
+            background: #f43f5e;
+            color: #000;
+          "
+          >OFFLINE</span
+        >
       </header>
 
       <div class="metrics-col">
         <div class="card">
           <span class="status-tag">Energy</span>
           <div class="metric-value" id="watts">0 W</div>
-          <small id="lux-val" style="color: var(--accent)">Lux: 0</small>
+          <small style="color: var(--accent)"
+            >Lux: <span id="lux">0</span></small
+          >
         </div>
         <div class="card">
           <span class="status-tag">Climate</span>
           <div class="metric-value" id="temp">0.0°C</div>
-          <small id="hum-val" style="color: var(--warning)">Hum: 0%</small>
+          <small style="color: #3b82f6"
+            >Hum: <span id="humidity">0</span>%</small
+          >
+        </div>
+        <div class="card">
+          <span class="status-tag">Status</span>
+          <div
+            id="occupancy"
+            style="font-size: 0.9rem; font-weight: 700; color: #fff"
+          >
+            Detecting...
+          </div>
         </div>
       </div>
 
       <div class="card">
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-          "
+        <span class="status-tag" style="margin-bottom: 10px"
+          >Quad-Axis Real Time Stream</span
         >
-          <span class="status-tag">Live Consumption Trend</span>
-          <span
-            style="color: var(--accent); font-size: 0.75rem; font-weight: 600"
-            >● Active Stream</span
-          >
-        </div>
         <div class="chart-container">
           <canvas id="energyChart"></canvas>
         </div>
       </div>
 
       <div class="controls-col">
-        <div class="card ai-box">
-          <h3>AI Insights</h3>
-          <p id="ai-status" class="ai-text">
-            Synchronizing with pattern recognition model...
+        <div class="card" style="border-left: 4px solid var(--warning)">
+          <span class="status-tag">AI Insights</span>
+          <p
+            id="ai-status"
+            style="font-size: 0.7rem; color: #a1a1aa; margin-top: 5px"
+          >
+            Synchronizing...
           </p>
         </div>
-        <div class="card" style="flex-grow: 1">
-          <h3>Manual Controls</h3>
-          <button id="btn-1" onclick="toggleRelay(1)">
-            Toggle Main Lighting
+        <div class="card" style="flex: 1">
+          <span class="status-tag">Controls</span>
+          <button id="btn-1" onclick="toggleRelay(1)" style="margin-top: 10px">
+            Light Grid
           </button>
-          <button id="btn-2" onclick="toggleRelay(2)">
-            Toggle HVAC System
-          </button>
-
+          <button id="btn-2" onclick="toggleRelay(2)">HVAC Fan</button>
           <div
-            class="card"
             style="
-              margin-top: 10px;
               border-top: 1px solid #333;
-              padding-top: 15px;
+              margin-top: 10px;
+              padding-top: 10px;
+              font-size: 0.7rem;
+              color: #aaa;
             "
           >
-            <span class="status-tag">Individual Appliance Usage</span>
-            <div style="font-size: 0.8rem; margin-top: 10px; color: #aaa">
-              <div style="display: flex; justify-content: space-between">
-                <span>Smart Light</span><span id="val-1">0 W</span>
-              </div>
-              <div
-                style="
-                  display: flex;
-                  justify-content: space-between;
-                  margin-top: 5px;
-                "
-              >
-                <span>HVAC Fan</span><span id="val-2">0 W</span>
-              </div>
+            <div style="display: flex; justify-content: space-between">
+              <span>Light</span><span id="val-1">0 W</span>
+            </div>
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                margin-top: 5px;
+              "
+            >
+              <span>HVAC</span><span id="val-2">0 W</span>
             </div>
           </div>
         </div>
@@ -247,14 +193,12 @@
     </div>
 
     <script>
-      // Clock
       setInterval(() => {
         document.getElementById("clock").innerText =
           new Date().toLocaleTimeString();
       }, 1000);
 
       const ctx = document.getElementById("energyChart").getContext("2d");
-      // UPDATE: Multi-Line Chart Configuration
       const energyChart = new Chart(ctx, {
         type: "line",
         data: {
@@ -264,81 +208,133 @@
               label: "Watts",
               data: [],
               borderColor: "#10b981",
+              yAxisID: "yWatts",
               tension: 0.4,
-              yAxisID: "y",
+              borderWidth: 3,
+              pointRadius: 0,
+            },
+            {
+              label: "Lux",
+              data: [],
+              borderColor: "#fff",
+              yAxisID: "yLux",
+              tension: 0.4,
+              borderWidth: 2,
+              borderDash: [5, 5],
+              pointRadius: 0,
             },
             {
               label: "Temp",
               data: [],
               borderColor: "#f59e0b",
+              yAxisID: "yTemp",
               tension: 0.4,
-              yAxisID: "y1",
+              borderWidth: 3,
+              pointRadius: 0,
             },
             {
               label: "Humid",
               data: [],
               borderColor: "#3b82f6",
+              yAxisID: "yHum",
               tension: 0.4,
-              yAxisID: "y1",
-            },
-            {
-              label: "Lux",
-              data: [],
-              borderColor: "#ffffff",
-              tension: 0.4,
-              yAxisID: "y",
+              borderWidth: 2,
+              pointRadius: 0,
             },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          animation: { duration: 0 },
+          interaction: { intersect: false, mode: "index" },
           scales: {
-            y: {
+            // LEFT SIDE
+            yWatts: {
               position: "left",
-              title: { display: true, text: "Energy/Light" },
+              beginAtZero: false,
+              ticks: { color: "#10b981" },
+              title: { display: true, text: "Watts", color: "#10b981" },
             },
-            y1: {
+            yLux: {
+              position: "left",
+              beginAtZero: false,
+              grid: { display: false },
+              ticks: { color: "#fff", padding: 10 },
+              title: { display: true, text: "Lux", color: "#fff" },
+            },
+
+            // RIGHT SIDE
+            yTemp: {
               position: "right",
-              grid: { drawOnChartArea: false },
-              title: { display: true, text: "Climate" },
+              beginAtZero: false,
+              ticks: { color: "#f59e0b" },
+              title: { display: true, text: "°C", color: "#f59e0b" },
+            },
+            yHum: {
+              position: "right",
+              beginAtZero: false,
+              grid: { display: false },
+              ticks: { color: "#3b82f6", padding: 10 },
+              title: { display: true, text: "% Hum", color: "#3b82f6" },
+            },
+
+            x: { grid: { display: false }, ticks: { color: "#71717a" } },
+          },
+          plugins: {
+            legend: {
+              position: "top",
+              labels: { color: "#fff", boxWidth: 8, font: { size: 9 } },
             },
           },
         },
       });
 
       async function updateDashboard() {
-        const res = await fetch("/api/sensor-data");
-        const data = await res.json();
+        try {
+          const res = await fetch("/api/sensor-data");
+          const data = await res.json();
 
-        // Mapping values (Fixes the 'undefined' error)
-        document.getElementById("watts").innerText = data.watts + " W";
-        document.getElementById("temp").innerText = data.temp + "°C";
-        document.getElementById("lux").innerText = data.lux;
-        document.getElementById("humidity").innerText = data.humidity + "%";
-        document.getElementById("occupancy").innerText = data.occupancy;
+          // UI Updates
+          document.getElementById("watts").innerText = data.watts + " W";
+          document.getElementById("temp").innerText = data.temp + "°C";
+          document.getElementById("lux").innerText = data.lux;
+          document.getElementById("humidity").innerText = data.humidity;
+          document.getElementById("occupancy").innerText = data.occupancy;
+          document.getElementById("ai-status").innerText = data.ai_suggestion;
+          document.getElementById("val-1").innerText = data.light_w + " W";
+          document.getElementById("val-2").innerText = data.fan_w + " W";
 
-        const now = new Date().toLocaleTimeString();
-        if (energyChart.data.labels.length > 20) {
-          energyChart.data.labels.shift();
-          energyChart.data.datasets.forEach((ds) => ds.data.shift()); // Sync shift
+          // Health online dot logic
+          const dot = document.getElementById("health-dot");
+          dot.style.background = data.online ? "#10b981" : "#f43f5e";
+          dot.innerText = data.online ? "ONLINE" : "OFFLINE";
+
+          // FIX: SURGICAL INDEX MAPPING
+          // 0: Watts, 1: Lux, 2: Temp, 3: Humid
+          const now = new Date().toLocaleTimeString();
+          if (energyChart.data.labels.length > 30) {
+            energyChart.data.labels.shift();
+            energyChart.data.datasets.forEach((ds) => ds.data.shift());
+          }
+          energyChart.data.labels.push(now);
+          energyChart.data.datasets[0].data.push(data.watts);
+          energyChart.data.datasets[1].data.push(data.lux); // INDEX 1 = LUX
+          energyChart.data.datasets[2].data.push(data.temp); // INDEX 2 = TEMP (Amber)
+          energyChart.data.datasets[3].data.push(data.humidity); // INDEX 3 = HUMID (Blue)
+
+          energyChart.update("none");
+        } catch (e) {
+          console.error(e);
         }
-        energyChart.data.labels.push(now);
-        energyChart.data.datasets[0].data.push(data.watts);
-        energyChart.data.datasets[1].data.push(data.temp);
-        energyChart.data.datasets[2].data.push(data.humidity);
-        energyChart.data.datasets[3].data.push(data.lux);
-        energyChart.update("none"); // Update without animation for performance
       }
 
       async function toggleRelay(id) {
         await fetch("/api/toggle-relay", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: id }),
         });
       }
-
       setInterval(updateDashboard, 1000);
     </script>
   </body>
