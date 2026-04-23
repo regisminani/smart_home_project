@@ -38,28 +38,24 @@ void loop() {
   // 1. Read Sensors
   sensors_event_t humidity, temp;
   aht.getEvent(&humidity, &temp);
-  
   float lux = lightMeter.readLightLevel();
   int rawLDR = analogRead(LDR_ANALOG_PIN);
   int motion = digitalRead(PIR_PIN);
 
-  // 2. Occupancy Logic (Red LED)
-  if (motion == HIGH) {
-    digitalWrite(RED_LED_PIN, HIGH);
-  } else {
-    digitalWrite(RED_LED_PIN, LOW);
+  // 2. RECEIVE COMMANDS FROM PYTHON 
+  // This replaces the old blinking logic
+  if (Serial.available() > 0) {
+    String cmd = Serial.readStringUntil('\n');
+    if (cmd.startsWith("R:")) {
+      // Parse format "R:1,0"
+      int r1 = cmd.substring(2,3).toInt();
+      int r2 = cmd.substring(4,5).toInt();
+      digitalWrite(RED_LED_PIN, r1 == 1 ? HIGH : LOW);
+      digitalWrite(GREEN_LED_PIN, r2 == 1 ? HIGH : LOW);
+    }
   }
 
-  // 3. HVAC Logic (Green LED)
-  // Trigger if it's hot (over threshold) AND someone is in the room
-  if (temp.temperature > TEMP_THRESHOLD && motion == HIGH) {
-    digitalWrite(GREEN_LED_PIN, HIGH);
-  } else {
-    digitalWrite(GREEN_LED_PIN, LOW);
-  }
-
-  // 4. THE DATA PACKET (For the Python Bridge)
-  // Format: DATA:Motion,Lux,Temp,Humidity,RawLDR
+  // 3. THE DATA PACKET (Arduino -> Python)
   Serial.print("DATA:");
   Serial.print(motion);
   Serial.print(",");
@@ -71,5 +67,5 @@ void loop() {
   Serial.print(",");
   Serial.println(rawLDR);
 
-  delay(1000); // Send data every 1 second
+  delay(500); // Faster updates for smoother context response
 }

@@ -83,3 +83,10 @@ To display the OLDEST (Historical Review):
 
 SQL
 SELECT * FROM sensor_data ORDER BY timestamp ASC LIMIT 1;
+
+# Current record count check using terminal
+import sqlite3
+conn = sqlite3.connect('smart_home.db')
+count = conn.execute("SELECT COUNT(*) FROM sensor_data").fetchone()[0]
+print(f"Current Database Records: {count}")
+conn.close()

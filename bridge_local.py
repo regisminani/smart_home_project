@@ -17,28 +17,31 @@ except Exception as e:
 
 while True:
     if ser.in_waiting > 0:
-        line = ser.readline().decode('utf-8').strip()
-        
+        line = ser.readline().decode('utf-8', errors='ignore').strip()
         if line.startswith("DATA:"):
             try:
-                # Arduino Format: DATA:Motion,Lux,Temp,Humidity,RawLDR
                 parts = line.replace("DATA:", "").split(",")
-                
-                # Mapping data to match your app.py requirements
                 payload = {
-                    # app.py expects "Occupied" or "Empty" strings
                     "occupancy": "Occupied" if int(parts[0]) == 1 else "Empty",
-                    # app.py uses "watts" for the energy meter
                     "watts": int(parts[4]), 
                     "temp": float(parts[2]),
                     "lux": float(parts[1]),
                     "humidity": float(parts[3])
                 }
 
-                # Push to Flask
+                # Push to Flask and get the Response
                 response = requests.post(LOCAL_SERVER_URL, json=payload)
-                print(f"Data Synced -> {payload['occupancy']} | Temp: {parts[2]}°C | Status: {response.status_code}")
+                res_data = response.json()
+
+                # SURGICAL COMMAND: Send relay states back to Arduino
+                if "relay_1" in res_data:
+                    # Format: R:1,0 (Relay1=On, Relay2=Off)
+                    r1 = 1 if res_data["relay_1"] else 0
+                    r2 = 1 if res_data["relay_2"] else 0
+                    cmd = f"R:{r1},{r2}\n"
+                    ser.write(cmd.encode())
+                    print(f"Sync -> {payload['occupancy']} | CMD Sent: {cmd.strip()}")
 
             except Exception as e:
                 print(f"⚠️ Parsing Error: {e}")
-    time.sleep(0.1)
+    time.sleep(0.01) # Faster response for Context-Awareness

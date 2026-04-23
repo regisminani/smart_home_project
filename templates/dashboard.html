@@ -101,18 +101,33 @@
         <div id="clock" style="color: var(--accent); font-family: monospace">
           00:00:00
         </div>
-        <span
-          id="health-dot"
-          style="
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 9px;
-            font-weight: 800;
-            background: #f43f5e;
-            color: #000;
-          "
-          >OFFLINE</span
-        >
+        <div style="display: flex; gap: 10px; align-items: center">
+          <span
+            id="record-count"
+            style="
+              background: #1f1f1f;
+              color: var(--accent);
+              padding: 4px 10px;
+              border-radius: 20px;
+              font-size: 10px;
+              font-weight: 800;
+              border: 1px solid var(--border);
+            "
+            >0 RECORDS</span
+          >
+          <span
+            id="health-dot"
+            style="
+              padding: 4px 10px;
+              border-radius: 20px;
+              font-size: 9px;
+              font-weight: 800;
+              background: #f43f5e;
+              color: #000;
+            "
+            >OFFLINE</span
+          >
+        </div>
       </header>
 
       <div class="metrics-col">
@@ -137,6 +152,15 @@
             style="font-size: 0.9rem; font-weight: 700; color: #fff"
           >
             Detecting...
+          </div>
+        </div>
+        <div class="card" style="border-top: 3px solid var(--accent)">
+          <span class="status-tag">System Classification</span>
+          <div
+            id="class-label"
+            style="font-size: 0.9rem; font-weight: 500; margin-top: 5px"
+          >
+            LOAD...
           </div>
         </div>
       </div>
@@ -187,6 +211,37 @@
             >
               <span>HVAC</span><span id="val-2">0 W</span>
             </div>
+          </div>
+        </div>
+        <div class="card" style="border-bottom: 3px solid #8b5cf6">
+          <span class="status-tag">Active Context</span>
+          <select
+            id="user-selector"
+            onchange="changeUser(this.value)"
+            style="
+              background: #000;
+              color: #fff;
+              border: 1px solid #333;
+              padding: 5px;
+              border-radius: 4px;
+              margin-top: 5px;
+              font-size: 0.8rem;
+            "
+          >
+            <option value="Default">Default Profile</option>
+            <option value="Nadine" selected>Nadine (Cold Pref)</option>
+            <option value="Regis">Regis (Energy Pref)</option>
+          </select>
+          <div
+            id="active-user-display"
+            style="
+              font-size: 0.7rem;
+              color: #8b5cf6;
+              margin-top: 5px;
+              font-weight: 700;
+            "
+          >
+            USER: NADINE
           </div>
         </div>
       </div>
@@ -295,6 +350,10 @@
           const res = await fetch("/api/sensor-data");
           const data = await res.json();
 
+          // Update Record Count
+          document.getElementById("record-count").innerText =
+            data.total_records.toLocaleString() + " RECORDS";
+
           // UI Updates
           document.getElementById("watts").innerText = data.watts + " W";
           document.getElementById("temp").innerText = data.temp + "°C";
@@ -304,6 +363,10 @@
           document.getElementById("ai-status").innerText = data.ai_suggestion;
           document.getElementById("val-1").innerText = data.light_w + " W";
           document.getElementById("val-2").innerText = data.fan_w + " W";
+          document.getElementById("class-label").innerText = data.class_label;
+          document.getElementById("class-label").style.color = data.class_color;
+          document.getElementById("active-user-display").innerText =
+            "USER: " + data.user_context.toUpperCase();
 
           // Health online dot logic
           const dot = document.getElementById("health-dot");
@@ -325,7 +388,7 @@
 
           energyChart.update("none");
         } catch (e) {
-          console.error(e);
+          console.error("Poll failed", e);
         }
       }
 
@@ -336,6 +399,16 @@
         });
       }
       setInterval(updateDashboard, 1000);
+
+      async function changeUser(val) {
+        await fetch("/api/set-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user: val }),
+        });
+        document.getElementById("active-user-display").innerText =
+          "USER: " + val.toUpperCase();
+      }
     </script>
   </body>
 </html>
