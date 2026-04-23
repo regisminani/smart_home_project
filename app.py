@@ -182,6 +182,8 @@ def get_sensor_data():
         "total_records": record_count,
         "relay_1": relay_states["1"],
         "relay_2": relay_states["2"],
+        "light_w": light_w,
+        "fan_w": fan_w,
         "ai_suggestion": f"CONTEXT: {current_user} profile active." if prediction != 2 else "ANOMALY: High waste detected.",
         "class_label": class_label,
         "class_color": class_color,
