@@ -15,20 +15,18 @@ Adafruit_AHTX0 aht;
 
 void setup() {
   Serial.begin(9600);
-  Wire.begin(); // Initializes I2C for BH1750 and AHT10
+  Wire.begin(); 
+  Wire.setClock(100000); // FIX: Force standard I2C speed for bus stability
 
-  // Initialize Pins
   pinMode(PIR_PIN, INPUT);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(GREEN_LED_PIN, OUTPUT);
 
-  // Initialize Sensors
-  if (!aht.begin()) {
-    Serial.println("Could not find AHT10 sensor!");
-  }
+  if (!aht.begin()) { Serial.println("AHT10_FAIL"); }
   
-  if (!lightMeter.begin()) {
-    Serial.println("Could not find BH1750 sensor!");
+  // FIX: Force High Resolution Mode on start
+  if (!lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) { 
+    Serial.println("BH1750_FAIL"); 
   }
 
   Serial.println("SYSTEM_READY");
@@ -42,6 +40,11 @@ void loop() {
   int rawLDR = analogRead(LDR_ANALOG_PIN);
   int motion = digitalRead(PIR_PIN);
 
+  if (lux < 0) {
+    lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
+    lux = 0; // Default to 0 instead of -1 to keep the graph clean
+  }
+  
   // 2. RECEIVE COMMANDS FROM PYTHON 
   // This replaces the old blinking logic
   if (Serial.available() > 0) {

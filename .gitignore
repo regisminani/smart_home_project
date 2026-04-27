@@ -36,3 +36,5 @@ desktop.ini
 # If you use any local simulation state files
 .wokwi/
 diagram.json.backup
+
+smart_home.db

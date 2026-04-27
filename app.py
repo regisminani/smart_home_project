@@ -24,9 +24,9 @@ relay_states = {"1": False, "2": False}
 
 # --- NEW: Context-Aware User Preferences ---
 USER_PREFS = {
-    "Default": {"temp_threshold": 28.0, "light_timeout": 30, "hvac_timeout": 60, "lux_threshold": 200}, # Only turn on if below 200 lx
+    "Default": {"temp_threshold": 28.0, "light_timeout": 30, "hvac_timeout": 60, "lux_threshold": 150}, # Baseline
     "Nadine":  {"temp_threshold": 24.0, "light_timeout": 120, "hvac_timeout": 300, "lux_threshold": 400}, # Nadine likes it bright; triggers earlier
-    "Regis":   {"temp_threshold": 26.5, "light_timeout": 60, "hvac_timeout": 120, "lux_threshold": 100}  # Regis is energy-efficient; triggers only when dark
+    "Regis":   {"temp_threshold": 26.5, "light_timeout": 60, "hvac_timeout": 120, "lux_threshold": 200}  # Regis is energy-efficient; triggers only when dark
 }
 
 # Track the active context
@@ -83,38 +83,30 @@ def receive_data():
             "last_seen": now_ts
         })
 
-        # 3. LUX-AWARE CONTEXT LOGIC
+        # 3. LUX-AWARE CONTEXT LOGIC (Decoupled Logic)
         prefs = USER_PREFS.get(current_user, USER_PREFS["Default"])
         time_since_motion = now_ts - latest_data["last_motion_at"]
         
-        # A. LIGHTING LOGIC (Lux-Dependent)
+        # A. LIGHTING LOGIC (Depends on Lux and Motion Persistence)
         if time_since_motion < prefs["light_timeout"]:
-            if not relay_states["1"]: # If turning ON for the first time
-                relay_states["1"] = True if latest_data["lux"] < prefs["lux_threshold"] else False
+            if not relay_states["1"]: # First trigger check
+                relay_states["1"] = True if current_lux < prefs["lux_threshold"] else False
             else:
-                relay_states["1"] = True # Stay ON for persistence
+                relay_states["1"] = True # Stay ON until timer expires
         else:
             relay_states["1"] = False
 
-        # B. HVAC LOGIC (Lux-Independent, Temp-Dependent)
-        # We check the temperature threshold strictly
+        # B. HVAC LOGIC (Strict Temperature Dependency)
+        # FIX: Removed the redundant block that tied HVAC to relay_states["1"]
         if time_since_motion < prefs["hvac_timeout"]:
             if latest_data["temp"] > prefs["temp_threshold"]:
                 relay_states["2"] = True
             else:
-                # SURGICAL FIX: If temp drops below threshold, turn OFF immediately 
-                # unless you want "Persistent Cooling" after the threshold is met.
                 relay_states["2"] = False
         else:
             relay_states["2"] = False
 
-        # HVAC Logic (Requires Light/Presence + Temperature)
-        if relay_states["1"] and latest_data["temp"] > prefs["temp_threshold"]:
-            relay_states["2"] = True
-        elif time_since_motion > prefs["hvac_timeout"]:
-            relay_states["2"] = False
-
-        # 4. Save to DB
+        # 4. Save to DB (Requirement #9)
         conn = sqlite3.connect('smart_home.db')
         c = conn.cursor()
         c.execute("INSERT INTO sensor_data (timestamp, motion, lux, temp, hum, watts) VALUES (?, ?, ?, ?, ?, ?)", 
@@ -123,7 +115,12 @@ def receive_data():
         conn.commit()
         conn.close()
 
-        return jsonify({"status": "success", "relay_1": relay_states["1"], "relay_2": relay_states["2"]}), 200
+        # 5. SYNC RETURN: Sends commands back to bridge_local.py
+        return jsonify({
+            "status": "success", 
+            "relay_1": relay_states["1"], 
+            "relay_2": relay_states["2"]
+        }), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
