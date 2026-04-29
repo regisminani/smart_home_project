@@ -214,34 +214,29 @@
           </div>
         </div>
         <div class="card" style="border-bottom: 3px solid #8b5cf6">
-          <span class="status-tag">Active Context</span>
-          <select
-            id="user-selector"
-            onchange="changeUser(this.value)"
-            style="
-              background: #000;
-              color: #fff;
-              border: 1px solid #333;
-              padding: 5px;
-              border-radius: 4px;
-              margin-top: 5px;
-              font-size: 0.8rem;
-            "
-          >
-            <option value="Default" selected>Default Profile</option>
-            <option value="Nadine">Nadine (Cold Pref)</option>
-            <option value="Regis">Regis (Energy Pref)</option>
-          </select>
+          <span class="status-tag">Dynamic Behavioral Sensing</span>
           <div
-            id="active-user-display"
+            id="sensing-status"
             style="
-              font-size: 0.7rem;
-              color: #8b5cf6;
-              margin-top: 5px;
-              font-weight: 700;
+              font-size: 0.8rem;
+              color: #fff;
+              margin-top: 8px;
+              font-weight: 600;
             "
           >
-            USER: NADINE
+            IDENTIFYING PREFERENCE...
+          </div>
+          <div
+            id="learning-indicator"
+            style="
+              font-size: 0.65rem;
+              color: #8b5cf6;
+              margin-top: 4px;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+            "
+          >
+            STATUS: LEARNING FROM OVERRIDES
           </div>
         </div>
       </div>
@@ -304,44 +299,21 @@
           animation: { duration: 0 },
           interaction: { intersect: false, mode: "index" },
           scales: {
-            // LEFT SIDE
-            yWatts: {
-              position: "left",
-              beginAtZero: false,
-              ticks: { color: "#10b981" },
-              title: { display: true, text: "Watts", color: "#10b981" },
-            },
+            yWatts: { position: "left", ticks: { color: "#10b981" } },
             yLux: {
               position: "left",
-              beginAtZero: false,
+              ticks: { color: "#fff" },
               grid: { display: false },
-              ticks: { color: "#fff", padding: 10 },
-              title: { display: true, text: "Lux", color: "#fff" },
             },
-
-            // RIGHT SIDE
-            yTemp: {
-              position: "right",
-              beginAtZero: false,
-              ticks: { color: "#f59e0b" },
-              title: { display: true, text: "°C", color: "#f59e0b" },
-            },
+            yTemp: { position: "right", ticks: { color: "#f59e0b" } },
             yHum: {
               position: "right",
-              beginAtZero: false,
+              ticks: { color: "#3b82f6" },
               grid: { display: false },
-              ticks: { color: "#3b82f6", padding: 10 },
-              title: { display: true, text: "% Hum", color: "#3b82f6" },
             },
-
-            x: { grid: { display: false }, ticks: { color: "#71717a" } },
+            x: { ticks: { color: "#71717a" }, grid: { display: false } },
           },
-          plugins: {
-            legend: {
-              position: "top",
-              labels: { color: "#fff", boxWidth: 8, font: { size: 9 } },
-            },
-          },
+          plugins: { legend: { labels: { color: "#fff", font: { size: 9 } } } },
         },
       });
 
@@ -350,31 +322,23 @@
           const res = await fetch("/api/sensor-data");
           const data = await res.json();
 
-          // Update Record Count
           document.getElementById("record-count").innerText =
             data.total_records.toLocaleString() + " RECORDS";
-
-          // UI Updates
           document.getElementById("watts").innerText = data.watts + " W";
           document.getElementById("temp").innerText = data.temp + "°C";
           document.getElementById("lux").innerText = data.lux;
-          document.getElementById("humidity").innerText = data.humidity;
+          document.getElementById("humidity").innerText = data.humidity + "%";
           document.getElementById("occupancy").innerText = data.occupancy;
           document.getElementById("ai-status").innerText = data.ai_suggestion;
           document.getElementById("val-1").innerText = data.light_w + " W";
           document.getElementById("val-2").innerText = data.fan_w + " W";
           document.getElementById("class-label").innerText = data.class_label;
           document.getElementById("class-label").style.color = data.class_color;
-          document.getElementById("active-user-display").innerText =
-            "USER: " + data.user_context.toUpperCase();
 
-          // Health online dot logic
           const dot = document.getElementById("health-dot");
           dot.style.background = data.online ? "#10b981" : "#f43f5e";
           dot.innerText = data.online ? "ONLINE" : "OFFLINE";
 
-          // FIX: SURGICAL INDEX MAPPING
-          // 0: Watts, 1: Lux, 2: Temp, 3: Humid
           const now = new Date().toLocaleTimeString();
           if (energyChart.data.labels.length > 30) {
             energyChart.data.labels.shift();
@@ -382,10 +346,9 @@
           }
           energyChart.data.labels.push(now);
           energyChart.data.datasets[0].data.push(data.watts);
-          energyChart.data.datasets[1].data.push(data.lux); // INDEX 1 = LUX
-          energyChart.data.datasets[2].data.push(data.temp); // INDEX 2 = TEMP (Amber)
-          energyChart.data.datasets[3].data.push(data.humidity); // INDEX 3 = HUMID (Blue)
-
+          energyChart.data.datasets[1].data.push(data.lux);
+          energyChart.data.datasets[2].data.push(data.temp);
+          energyChart.data.datasets[3].data.push(data.humidity);
           energyChart.update("none");
         } catch (e) {
           console.error("Poll failed", e);
@@ -393,22 +356,34 @@
       }
 
       async function toggleRelay(id) {
-        await fetch("/api/toggle-relay", {
-          method: "POST",
-          body: JSON.stringify({ id: id }),
-        });
-      }
-      setInterval(updateDashboard, 1000);
+        const btn = document.getElementById(`btn-${id}`);
 
-      async function changeUser(val) {
-        await fetch("/api/set-user", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user: val }),
-        });
-        document.getElementById("active-user-display").innerText =
-          "USER: " + val.toUpperCase();
+        // Immediate Visual Feedback
+        const originalText = btn.innerText;
+        btn.innerText = "SENDING...";
+        btn.style.background = "#3b82f6"; // Blue indicates processing
+
+        try {
+          const response = await fetch("/api/toggle-relay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: id }),
+          });
+
+          if (response.ok) {
+            btn.style.background = "#10b981"; // Success Green
+            setTimeout(() => {
+              btn.innerText = originalText;
+              btn.style.background = "#1f1f1f";
+            }, 500);
+          }
+        } catch (e) {
+          btn.style.background = "#f43f5e"; // Error Red
+          btn.innerText = "RETRY";
+        }
       }
+
+      setInterval(updateDashboard, 1000);
     </script>
   </body>
 </html>
