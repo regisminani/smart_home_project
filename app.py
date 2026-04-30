@@ -159,6 +159,9 @@ def get_sensor_data():
                               latest_data["lux"], latest_data["humidity"], total_watts]], 
                             columns=['motion', 'temp', 'lux', 'hum', 'watts'])
     prediction = int(model.predict(features)[0])
+
+    light_w = 60 if relay_states["1"] else 0
+    fan_w = 150 if relay_states["2"] else 0
     
     # Visual Class labels
     class_label, class_color = classify_data_point(latest_data["temp"], total_watts, logic_occupancy)
@@ -169,6 +172,7 @@ def get_sensor_data():
         "total_records": record_count, "relay_1": relay_states["1"], "relay_2": relay_states["2"],
         "ai_suggestion": "ADAPTING TO BEHAVIOR" if prediction != 2 else "ANOMALY: High waste detected.",
         "class_label": class_label, "class_color": class_color,
+        'light_w': light_w, 'fan_w': fan_w,
         "online": (now - latest_data["last_seen"]) < 10
     })
 
